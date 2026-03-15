@@ -1,0 +1,124 @@
+#get packages for reading Excel files + making plots
+install.packages("readxl")
+install.packages("ggplot2")
+install.packages("dplyr")
+
+#if already installed start run here (load pkgs):
+library(readxl)
+library(ggplot2)
+library(dplyr)
+
+#read file
+data<-read_excel("iupred_update_polyA.xlsx")
+
+# File name
+file_name <- "iupred_update_polyA.xlsx"
+
+# Read sheet names (each sheet = one protein)
+sheets <- excel_sheets(file_name)
+
+# Initialize list to hold data
+df_list <- list()
+
+# Loop through all sheets
+for (sheet in sheets) {
+  data <- read_excel(file_name, sheet = sheet)
+  
+  # Clean column names
+  colnames(data) <- trimws(colnames(data))
+  
+  # Check that we have the expected columns
+  if (ncol(data) < 3) {
+    warning(paste("Skipping", sheet, "- not enough columns"))
+    next
+  }
+  
+  # Pull out relevant columns: amino acid number and disorder score
+  temp <- data %>%
+    select(Residue = 1, DisorderScore = 3) %>%
+    mutate(Residue = as.numeric(Residue),
+           DisorderScore = as.numeric(DisorderScore),
+           Protein = sheet)
+  
+  df_list[[sheet]] <- temp
+}
+
+# Combine into one data frame
+combined_df <- bind_rows(df_list)
+
+# Factor protein names to preserve order
+combined_df$Protein <- factor(combined_df$Protein, levels = sheets)
+
+# Original protein names
+real_proteins <- unique(as.character(combined_df$Protein))
+
+# Interleave protein names with unique spacers
+spaced_proteins <- unlist(
+  lapply(seq_along(real_proteins), function(i) c(real_proteins[i], paste0("spacer_", i)))
+)
+
+# Assign new factor levels
+combined_df$Protein <- factor(combined_df$Protein, levels = spaced_proteins)
+
+# Create blank rows for each spacer level
+spacer_df <- bind_rows(
+  lapply(seq_along(real_proteins), function(i) {
+    tibble(
+      Residue = NA,
+      DisorderScore = NA,
+      Protein = paste0("spacer_", i)
+    )
+  })
+)
+
+# Combine with real data
+combined_with_gaps <- bind_rows(combined_df, spacer_df)
+
+# Make sure Protein is a factor with correct levels
+combined_with_gaps$Protein <- factor(combined_with_gaps$Protein, levels = spaced_proteins)
+
+p<-ggplot(combined_with_gaps, aes(x = Residue, y = Protein, fill = DisorderScore)) +
+  geom_tile(na.rm = TRUE) +
+  scale_fill_gradient2(
+    low = "#E69F00", mid = "#F0F0F0", high = "#0072B2",
+    midpoint = 0.5, limits = c(0, 1),
+    name = "Disorder Score"
+  ) +
+  labs(
+    x = "Residue",
+  ) +
+  scale_y_discrete(labels = function(x) ifelse(grepl("spacer_", x), "", x)) +  # hides spacer labels
+  theme_minimal() +
+  theme(
+    panel.grid = element_blank(),         # removes both major & minor grid lines
+    panel.background = element_blank(),
+    axis.text.x = element_text(angle = 90, size = 18, color="black"),
+    axis.text.y = element_text(size = 18, color="black"),
+    axis.title.x = element_text(size = 16, color="black", margin = margin(t = 10)),
+    axis.title.y = element_text(size = 16, color="black"),
+    plot.title = element_text(size = 18, face = "bold", hjust = 0.5),
+    legend.title = element_text(size = 14, margin = margin(b = 10)),
+    legend.text = element_text(size = 12)
+  )
+
+ggsave("disorder_heatmap_polyA.png", plot = p, width = 12, height = 0.4 * length(unique(combined_df$Protein)) + 2, dpi = 300)
+
+print(p)
+
+
+
+
+#E#E#EEEEEEEEEEEEEEEEE#E#E#E
+
+
+
+
+
+
+
+
+
+
+
+
+
