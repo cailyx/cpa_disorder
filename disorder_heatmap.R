@@ -1,4 +1,5 @@
-#get packages for reading Excel files + making plots
+###make disorder score heatmaps for mRNA 3' end processing proteins
+
 install.packages("readxl")
 install.packages("ggplot2")
 install.packages("dplyr")
@@ -16,24 +17,16 @@ file_name <- "iupred_update_polyA.xlsx"
 
 # Read sheet names (each sheet = one protein)
 sheets <- excel_sheets(file_name)
-
-# Initialize list to hold data
 df_list <- list()
 
-# Loop through all sheets
 for (sheet in sheets) {
   data <- read_excel(file_name, sheet = sheet)
-  
-  # Clean column names
   colnames(data) <- trimws(colnames(data))
-  
-  # Check that we have the expected columns
   if (ncol(data) < 3) {
     warning(paste("Skipping", sheet, "- not enough columns"))
     next
   }
-  
-  # Pull out relevant columns: amino acid number and disorder score
+
   temp <- data %>%
     select(Residue = 1, DisorderScore = 3) %>%
     mutate(Residue = as.numeric(Residue),
@@ -43,24 +36,19 @@ for (sheet in sheets) {
   df_list[[sheet]] <- temp
 }
 
-# Combine into one data frame
 combined_df <- bind_rows(df_list)
 
-# Factor protein names to preserve order
 combined_df$Protein <- factor(combined_df$Protein, levels = sheets)
 
-# Original protein names
 real_proteins <- unique(as.character(combined_df$Protein))
 
-# Interleave protein names with unique spacers
 spaced_proteins <- unlist(
   lapply(seq_along(real_proteins), function(i) c(real_proteins[i], paste0("spacer_", i)))
 )
 
-# Assign new factor levels
 combined_df$Protein <- factor(combined_df$Protein, levels = spaced_proteins)
 
-# Create blank rows for each spacer level
+#need to create some blank rows..
 spacer_df <- bind_rows(
   lapply(seq_along(real_proteins), function(i) {
     tibble(
@@ -71,7 +59,7 @@ spacer_df <- bind_rows(
   })
 )
 
-# Combine with real data
+#combine
 combined_with_gaps <- bind_rows(combined_df, spacer_df)
 
 # Make sure Protein is a factor with correct levels
