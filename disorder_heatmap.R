@@ -1,29 +1,24 @@
-###make disorder score heatmaps for mRNA 3' end processing proteins
+###to make disorder score heatmaps for mRNA 3' end processing proteins (color-blind accessible)
+##################can clean later.
 
 install.packages("readxl")
 install.packages("ggplot2")
 install.packages("dplyr")
 
-#if already installed start run here (load pkgs):
 library(readxl)
 library(ggplot2)
 library(dplyr)
 
-#read file
 data<-read_excel("iupred_update_polyA.xlsx")
-
-# File name
-file_name <- "iupred_update_polyA.xlsx"
-
-# Read sheet names (each sheet = one protein)
-sheets <- excel_sheets(file_name)
+scores <- "iupred_update_polyA.xlsx"
+sheets <- excel_sheets(scores)
 df_list <- list()
 
 for (sheet in sheets) {
-  data <- read_excel(file_name, sheet = sheet)
+  data <- read_excel(scores, sheet = sheet)
   colnames(data) <- trimws(colnames(data))
   if (ncol(data) < 3) {
-    warning(paste("Skipping", sheet, "- not enough columns"))
+    warning(paste("skipping", sheet, "- not enough columns"))
     next
   }
 
@@ -48,7 +43,7 @@ spaced_proteins <- unlist(
 
 combined_df$Protein <- factor(combined_df$Protein, levels = spaced_proteins)
 
-#need to create some blank rows..
+####need to create some blank rows..
 spacer_df <- bind_rows(
   lapply(seq_along(real_proteins), function(i) {
     tibble(
@@ -62,7 +57,7 @@ spacer_df <- bind_rows(
 #combine
 combined_with_gaps <- bind_rows(combined_df, spacer_df)
 
-# Make sure Protein is a factor with correct levels
+#make sure protein is a factor with correct levels
 combined_with_gaps$Protein <- factor(combined_with_gaps$Protein, levels = spaced_proteins)
 
 p<-ggplot(combined_with_gaps, aes(x = Residue, y = Protein, fill = DisorderScore)) +
@@ -78,7 +73,7 @@ p<-ggplot(combined_with_gaps, aes(x = Residue, y = Protein, fill = DisorderScore
   scale_y_discrete(labels = function(x) ifelse(grepl("spacer_", x), "", x)) +  # hides spacer labels
   theme_minimal() +
   theme(
-    panel.grid = element_blank(),         # removes both major & minor grid lines
+    panel.grid = element_blank(),         #removes both major and minor grid lines
     panel.background = element_blank(),
     axis.text.x = element_text(angle = 90, size = 18, color="black"),
     axis.text.y = element_text(size = 18, color="black"),
